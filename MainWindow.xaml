@@ -11,12 +11,14 @@
         <Rectangle Name="ColorDisplay" Width="144" Height="113" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="49,47,0,0"/>
         <TextBox Name="ColorInfo" VerticalAlignment="Top" Margin="49,165,607,0" Height="30" IsReadOnly="True"/>
 
-        <TextBlock Text="Criar nova Paleta:" Margin="223,141,177,0" VerticalAlignment="Top" FontSize="14"/>
-        <TextBox Name="PaletteName" Height="30" Margin="223,165,267,0" VerticalAlignment="Top"/>
-        <Button Content="Salvar Paleta" Height="30" Margin="540,165,155,0" VerticalAlignment="Top"/>
+        <TextBlock Text="Criar nova Paleta:" Margin="223,141,449,0" VerticalAlignment="Top" FontSize="14"/>
+        <TextBox Name="PaletteName" Height="30" Margin="223,160,163,0" VerticalAlignment="Top"/>
+        <Button Content="Salvar Paleta" Height="30" Margin="642,160,53,0" VerticalAlignment="Top" Click="SavePalette_Click"/>
 
-        <Label x:Name="PaletteNameLabel" Content="Nome da Paleta" FontSize="16" Margin="53,249,625,156"/>
-        <ListBox x:Name="ColorPalette" Margin="53,283,53,27">
+        <Button x:Name="ToggleCaptureButton" Content="Ativar Captura" Height="30" Width="100" VerticalAlignment="Top" HorizontalAlignment="Left" Margin="69,200,0,0" Click="ToggleCapture_Click"/>
+
+        <Label x:Name="PaletteNameLabel" Content="Nome da Paleta" FontSize="16" Margin="53,263,625,142"/>
+        <ListBox x:Name="ColorPalette" Margin="53,297,53,27">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <StackPanel Orientation="Horizontal" Margin="5">
