@@ -1,20 +1,27 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
+using System.Drawing; // Necessário para manipulação de imagem
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
-using Gma.System.MouseKeyHook;
+using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace Color_Collector
 {
     public partial class MainWindow : Window
     {
-        private IKeyboardMouseEvents globalHook; // Hook global do mouse
-        private List<ColorDescription> colorPalette = new List<ColorDescription>(); // Paleta de cores
+        private DispatcherTimer timer;
+        private bool isCapturingColor = false;
 
         [DllImport("user32.dll")]
         public static extern bool GetCursorPos(out POINT lpPoint);
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetDC(IntPtr hWnd);
+
+        [DllImport("user32.dll")]
+        public static extern int ReleaseDC(IntPtr hWnd, IntPtr hDC);
 
         [StructLayout(LayoutKind.Sequential)]
         public struct POINT
@@ -26,93 +33,101 @@ namespace Color_Collector
         public MainWindow()
         {
             InitializeComponent();
-            StartGlobalMouseHook(); // Inicia o hook global
+
+            // Criação do temporizador para capturar a cor a cada 100ms
+            timer = new DispatcherTimer();
+            timer.Interval = TimeSpan.FromMilliseconds(100);
+            timer.Tick += Timer_Tick;
         }
 
-        private void StartGlobalMouseHook()
+        // Evento para capturar a cor ao pressionar a tecla Enter
+        private void Window_KeyDown(object sender, KeyEventArgs e)
         {
-            globalHook = Hook.GlobalEvents(); // Cria o hook global
-
-            // Registra o evento para clique do botão esquerdo do mouse
-            globalHook.MouseDownExt += GlobalMouseDown;
-        }
-
-        private void GlobalMouseDown(object sender, MouseEventExtArgs e)
-        {
-            // Verifica se é o botão esquerdo do mouse
-            if (e.Button == System.Windows.Forms.MouseButtons.Left)
+            if (e.Key == Key.Enter)
             {
-                // Captura a posição atual do cursor
-                GetCursorPos(out POINT point);
+                CaptureColorUnderMouse(); // Captura a cor quando Enter é pressionado
+            }
+        }
 
-                // Captura a cor do pixel na posição do cursor
-                using (var bitmap = new Bitmap(1, 1))
+        // Evento chamado a cada 100ms para capturar a cor do mouse
+        private void Timer_Tick(object sender, EventArgs e)
+        {
+            if (isCapturingColor)
+            {
+                UpdateColorUnderMouse(); // Atualiza a cor do ponto sob o mouse em tempo real
+            }
+        }
+
+        // Função para capturar a cor do ponto onde o mouse está
+        private void CaptureColorUnderMouse()
+        {
+            // Obtém a posição do cursor
+            GetCursorPos(out POINT point);
+
+            // Captura o pixel da tela na posição do cursor
+            using (var bitmap = new Bitmap(1, 1))
+            {
+                using (var g = Graphics.FromImage(bitmap))
                 {
-                    using (var g = Graphics.FromImage(bitmap))
-                    {
-                        g.CopyFromScreen(point.X, point.Y, 0, 0, new System.Drawing.Size(1, 1));
-                    }
-
-                    System.Drawing.Color color = bitmap.GetPixel(0, 0); // Cor capturada
-                    string colorInfo = $"RGB: {color.R}, {color.G}, {color.B} | HEX: #{color.R:X2}{color.G:X2}{color.B:X2}";
-
-                    // Cria uma descrição da cor
-                    var colorDescription = new ColorDescription
-                    {
-                        Description = colorInfo,
-                        Color = System.Windows.Media.Color.FromRgb(color.R, color.G, color.B)
-                    };
-
-                    // Adiciona a cor à paleta
-                    colorPalette.Add(colorDescription);
-                    ColorPalette.Items.Add(colorDescription);
-
-                    // Atualiza o UI com a cor atual
-                    ColorDisplay.Fill = new SolidColorBrush(colorDescription.Color);
-                    ColorInfo.Text = colorInfo;
+                    g.CopyFromScreen(point.X, point.Y, 0, 0, new System.Drawing.Size(1, 1));
                 }
 
-                // Evita processar o clique várias vezes
-                e.Handled = true;
+                // Pega a cor do pixel
+                System.Drawing.Color color = bitmap.GetPixel(0, 0);
+
+                // Exibe a cor no Retângulo e as informações no TextBox
+                ColorDisplay.Fill = new SolidColorBrush(System.Windows.Media.Color.FromRgb(color.R, color.G, color.B));
+                ColorInfo.Text = $"RGB: {color.R}, {color.G}, {color.B} | HEX: #{color.R:X2}{color.G:X2}{color.B:X2}";
             }
         }
 
-        private void SavePalette_Click(object sender, RoutedEventArgs e)
+        // Função para exibir a cor do ponto sob o mouse em tempo real
+        private void UpdateColorUnderMouse()
         {
-            string paletteName = PaletteName.Text;
-            if (string.IsNullOrWhiteSpace(paletteName))
-            {
-                MessageBox.Show("Insira um nome para a paleta.");
-                return;
-            }
+            // Obtém a posição do cursor
+            GetCursorPos(out POINT point);
 
-            // Atualiza o nome da paleta na Label
-            PaletteNameLabel.Content = $"Paleta: {paletteName}";
-
-            // Salva a paleta de cores em um arquivo
-            List<string> colorStrings = new List<string>();
-            foreach (var color in colorPalette)
+            // Captura o pixel da tela na posição do cursor
+            using (var bitmap = new Bitmap(1, 1))
             {
-                colorStrings.Add(color.Description);
+                using (var g = Graphics.FromImage(bitmap))
+                {
+                    g.CopyFromScreen(point.X, point.Y, 0, 0, new System.Drawing.Size(1, 1));
+                }
+
+                // Pega a cor do pixel
+                System.Drawing.Color color = bitmap.GetPixel(0, 0);
+
+                // Atualiza a cor no retângulo de exibição em tempo real
+                ColorDisplay.Fill = new SolidColorBrush(System.Windows.Media.Color.FromRgb(color.R, color.G, color.B));
             }
-            System.IO.File.WriteAllLines($"{paletteName}.txt", colorStrings);
-            MessageBox.Show($"Paleta '{paletteName}' salva com sucesso!");
         }
 
-        private void OnWindowClosed(object sender, EventArgs e)
+        // Inicia ou desativa a captura de cor ao pressionar Enter
+        private void ToggleColorCapture(object sender, RoutedEventArgs e)
         {
-            // Libera o hook global ao fechar a janela
-            if (globalHook != null)
-            {
-                globalHook.Dispose();
-            }
-        }
-    }
+            isCapturingColor = !isCapturingColor;
 
-    // Classe para armazenar a descrição da cor e a cor propriamente dita
-    public class ColorDescription
-    {
-        public string Description { get; set; }
-        public System.Windows.Media.Color Color { get; set; }
+            if (isCapturingColor)
+            {
+                // Inicia o temporizador para capturar a cor do mouse
+                timer.Start();
+            }
+            else
+            {
+                // Para o temporizador
+                timer.Stop();
+            }
+
+            // Altera o cursor para indicar que a captura de cor está ativada
+            Mouse.OverrideCursor = isCapturingColor ? Cursors.Cross : null;
+        }
+
+        // Quando a janela for fechada, para o temporizador
+        protected override void OnClosed(EventArgs e)
+        {
+            base.OnClosed(e);
+            timer.Stop(); // Para o temporizador quando a janela for fechada
+        }
     }
 }
