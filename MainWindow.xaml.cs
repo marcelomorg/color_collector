@@ -89,6 +89,4 @@ namespace Color_Collector
         {
             base.OnClosed(e);
             timer.Stop();
-        }
-    }
 }
